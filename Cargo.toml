@@ -15,8 +15,12 @@ clipboard = "0.5.0"
 
 # [[bin]]
 # name = "app"
-# path = "test/demo4.rs"
+# path = "test/demo5.rs"
 
 # [[bin]]
 # name = "v1"
 # path = "src/v1.rs"
+
+# [[bin]]
+# name = "main"
+# path = "src/main.rs"

@@ -1,50 +1,53 @@
 mod ips;
 mod command;
 mod v2ray;
+mod utils;
 
+use crate::utils::get_user_input;
 use std::io::{ self, Write };
 use clipboard::{ ClipboardContext, ClipboardProvider };
 
+static CIDR_PATH: &str = "cidr";
 static EXE_CLI: &str = "resources/CloudflareST.exe"; // CLI程序
 static IPS_V4_PATH: &str = "ips-v4.txt"; // IPv4 CIDR的文件
 static IPS_V4_TEMP: &str = "temp.txt"; // 由CIDR生成的IP地址文件(临时)
 static CSV_FILE: &str = "result.csv"; // csv优选地址
 static CONFIG_FILE: &str = "resources/config.yaml"; // vless/trojan代理协议对应的yaml配置
+static COUNTRY_CODES: &[&str] = &[
+    "CN", "CF", "CL", "GI", "TD", "JE", "ZM", "VN", "JO", "IO", "VG", "GB", "ID", "IN", "IT", "IL", "IR", "IQ", "YE", "AM", "JM", "SY", "HU", "NZ", "NC", "SG", "HK", "GR", "EH", "ES", "UZ", "UY", "UA", "UG", "BN", "VE", "GT", "VU", "WF", "TK", "TM", "TR", "TV", "TN", "TT", "TC", "TO", "TZ", "TH", "TW", "TJ", "SO", "SB", "SR", "SD", "SZ", "SJ", "SI", "SK", "LK", "VC", "PM", "SM", "MF", "LC", "KN", "SH", "ST", "CX", "BL", "SA", "SC", "CY", "SN", "SL", "RS", "WS", "SV", "CH", "SE", "JP", "GE", "PT", "PN", "PW", "NF", "NO", "NU", "NG", "NE", "NP", "NI", "NR", "SS", "GS", "AQ", "ZA", "NA", "MX", "MZ", "MC", "MA", "MD", "MM", "FM", "PE", "BD", "MS", "MN", "VI", "AS", "UM", "US", "MR", "MU", "YT", "MQ", "MH", "ML", "MY", "MW", "MT", "MV", "IM", "MG", "RO", "RW", "LU", "RE", "LI", "LY", "LR", "LT", "LB", "LA", "LS", "LV", "CW", "CK", "KE", "HR", "KW", "CI", "KM", "CC", "KY", "QA", "CM", "ZW", "CZ", "KH", "GA", "GH", "CA", "GW", "GN", "KG", "DJ", "KI", "HN", "ME", "HM", "SX", "NL", "KR", "HT", "KZ", "GY", "GU", "GP", "CU", "GG", "GL", "GD", "CR", "CO", "CD", "CG", "GM", "FK", "CV", "FI", "FJ", "PH", "VA", "TF", "GF", "PF", "FO", "FR", "ER", "EC", "RU", "DM", "DO", "TG", "TL", "DE", "DK", "GQ", "KP", "BV", "BI", "BF", "BT", "BQ", "BW", "BZ", "BO", "BA", "PL", "PR", "IS", "BE", "BJ", "MK", "MP", "BG", "BM", "BY", "BR", "PA", "BH", "PS", "PY", "PK", "BS", "PG", "BB", "MO", "AU", "AX", "AT", "AG", "AI", "AO", "AD", "EE", "IE", "ET", "EG", "AZ", "OM", "AW", "AE", "AR", "AF", "DZ", "AL",
+];
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // ————————————————————————————————————————————————————————————————————————————————————
-    let code_shape =
-        r"
-    +----------------------------------------------------+
-    |                                                    |
-    |   US：美国的CIDR，GB：英国的CIDR，HK：香港的CIDR   |
-    |            ALL: 全部国家/地区（不区分）            |
-    |     直接按Enter键，就使用ips-v4.txt文件的CIDR      |
-    |                                                    |
-    +----------------------------------------------------+
-";
-    println!("{}", code_shape);
-    let mut country_code = String::new();
-    let code_vec = vec!["US", "HK", "GB", "ALL", ""];
-    // 将 Vec<&str> 转换为 Vec<String>
-    let country_code_vec: Vec<String> = code_vec
-        .iter()
-        .map(|&s| s.to_string())
-        .collect();
 
-    let label = "选择哪个国家/地区的CIDR扫描: ";
-    country_code = ips::get_user_input(label, country_code, country_code_vec);
+    println!("选择哪个txt文件的CIDR数据扫描？");
+    println!("+--------------------------------------------------------+");
+    let mut names = utils::get_file_names(CIDR_PATH)?;
+    let mut i = 0;
+    names.iter().for_each(|name| {
+        println!(" ● {i}、{CIDR_PATH}/{name}   ");
+        i += 1;
+    });
+    names.push(IPS_V4_PATH.to_string());
+    println!(" ● {i}、{IPS_V4_PATH}   ");
+    println!("+--------------------------------------------------------+");
+    let label = "这里输入前面对应的数字: ";
+    let index = get_user_input(label, 9999999, (0..=names.len() + 1).collect());
 
-    if country_code != "" {
-        let source_path = format!("./cidr/v4_{}.txt", country_code);
-
-        // 执行文件复制（会覆盖目标文件）
-        std::fs::copy(source_path, IPS_V4_PATH)?;
+    let select_file = names[index].clone();
+    let mut country_code = "".to_string(); // 用于添加到节点的别名中
+    if select_file != IPS_V4_PATH {
+        let source_path = format!("{}/{}", CIDR_PATH, select_file);
+        std::fs::copy(source_path, IPS_V4_PATH)?; // 执行文件复制（会覆盖目标文件）
+        
+        country_code = utils::get_country_code(COUNTRY_CODES, &select_file.to_uppercase());
     }
 
     // ————————————————————————————————————————————————————————————————————————————————————
-
+    
+    println!();
+    
     // 由IPv4 CIDR生成IP地址
     ips::generate_and_write_ips(IPS_V4_PATH, IPS_V4_TEMP);
 
@@ -57,20 +60,18 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // ————————————————————————————————————————————————————————————————————————————————————
     let ports_shape =
         r"
-    +----------------------------------------------------+
-    |                                                    |
-    | HTTP Ports: 80, 8080, 8880, 2052, 2082, 2086, 2095 |
-    |                                                    |
-    | HTTPS Ports: 443, 2053, 2083, 2087, 2096, 8443     |
-    |                                                    |
-    +----------------------------------------------------+
+ +-----------------------------------------------------+
+ |                                                     |
+ | HTTP Ports: 80, 8080, 8880, 2052, 2082, 2086, 2095  |
+ |                                                     |
+ | HTTPS Ports: 443, 2053, 2083, 2087, 2096, 8443      |
+ |                                                     |
+ +-----------------------------------------------------+
 ";
     println!("{}", ports_shape);
     let label = "选择哪个端口扫描：";
     let ports_vec = vec![80, 8080, 8880, 2052, 2082, 2086, 2095, 443, 2053, 2083, 2087, 2096, 8443];
-    let port = ips::get_user_input(label, 0, ports_vec).to_string();
-
-    println!("您选择的端口：{}\n", port);
+    let port = get_user_input(label, 0, ports_vec).to_string();
 
     // ————————————————————————————————————————————————————————————————————————————————————
 
@@ -79,13 +80,13 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .iter()
         .map(|&s| s.to_string())
         .collect();
-    let test_speed = ips::get_user_input(label, String::new(), yes_or_no.clone());
+    let test_speed = get_user_input(label, String::new(), yes_or_no.clone());
 
     if test_speed.to_uppercase() == "Y" {
         let label =
             "根据前面测试的延迟排序，继续测速，测速数量(取值范围：1~100，也是写入csv文件的IP数量)：";
         let numbers: Vec<u8> = (1..=100).collect();
-        let dn: String = ips::get_user_input(label, 0, numbers).to_string();
+        let dn: String = get_user_input(label, 0, numbers).to_string();
 
         println!(
             "\n+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++\n"
@@ -115,12 +116,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     );
 
     let label = "是否构建v2ray分享链接(Y/n)：";
-    let yes_build = ips::get_user_input(label, String::new(), yes_or_no);
+    let yes_build = get_user_input(label, String::new(), yes_or_no);
 
     if yes_build.to_uppercase() == "Y" {
         let label = "您需要多少条分享链接(取值范围：1~1000，实际不可能超过csv文件的结果数量)：";
         let numbers: Vec<usize> = (1..=1000).collect();
-        let max_nodes = ips::get_user_input(label, 0, numbers);
+        let max_nodes = get_user_input(label, 0, numbers);
         let port_as_u16 = port.parse::<u16>().unwrap_or(443);
         let reuslts = v2ray::build_v2ray_links(
             max_nodes,

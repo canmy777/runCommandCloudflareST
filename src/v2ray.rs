@@ -18,6 +18,7 @@ struct Record {
     port: Option<u16>,
 }
 
+#[allow(dead_code)]
 pub fn build_v2ray_links(
     max_nodes: usize,
     country_code: &str,

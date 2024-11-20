@@ -37,13 +37,12 @@ fn main() {
     let mut links: Vec<String> = Vec::new();
     let mut count: usize = 0;
     if let serde_yaml::Value::Sequence(array) = &data {
-        let length = array.len(); // 数组中，由多少个元素
+        let length = array.len(); // 数组中，有多少个元素
 
         // 迭代每一行记录
         for result in rdr.deserialize() {
             let record: Record = result.unwrap();
 
-            // 打印你想要的列内容，这里以 alias1 和 alias2 为例
             let server = match &record.ip1 {
                 Some(value) => value,
                 None => { record.ip2.as_ref().map_or("", |v| v) }

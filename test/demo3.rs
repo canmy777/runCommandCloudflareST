@@ -29,7 +29,6 @@ fn main() -> Result<(), Box<dyn Error>> {
     for result in rdr.deserialize() {
         let record: Record = result?;
 
-        // 打印你想要的列内容，这里以 alias1 和 alias2 为例
         let ip_address = match &record.ip1 {
             Some(value) => value,
             None => { record.ip2.as_ref().map_or("", |v| v) }

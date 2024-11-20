@@ -1,10 +1,10 @@
+use crate::utils::get_user_input;
 use std::{
     collections::HashSet,
     fs::{ self, File },
     io::{ self, BufRead, BufWriter, Write },
     net::Ipv4Addr,
     path::Path,
-    str::FromStr,
 };
 use rand::{ seq::SliceRandom, Rng };
 
@@ -79,7 +79,7 @@ pub fn generate_and_write_ips(input_file: &str, output_file: &str) {
             }
         }
 
-        println!("如今生成的IP数量：{}", all_ips.len());
+        println!("共生成 {} 个IP地址。", all_ips.len());
 
         // 打乱 IP 地址顺序
         let mut rng = rand::thread_rng();
@@ -108,28 +108,4 @@ pub fn check_file_exists_and_not_empty(path: &str) -> bool {
     }
 
     false
-}
-
-/// 获取用户输入的内容，这里使用泛型来写，适配不同的数据类型
-pub fn get_user_input<T>(label: &str, mut var: T, vec: Vec<T>) -> T
-    where
-        /*
-         * label: 打印一段提示语，介绍这个动作的用途
-         * var：用于存放捕捉用户输入的数值
-         * vec: 只有用户输入的数组出现在该向量中才跳出死循环
-         */
-        T: FromStr + ToString + PartialEq // T 必须实现 FromStr, ToString 和 PartialEq trait
-{
-    loop {
-        print!("{}", label);
-        io::stdout().flush().unwrap();
-        let mut input = String::new();
-        io::stdin().read_line(&mut input).unwrap();
-        let input_string = input.trim().to_string();
-        var = T::from_str(&input_string).unwrap_or_else(|_| var); // 读取并转换输入
-        if vec.contains(&var) {
-            break;
-        }
-    }
-    var
 }

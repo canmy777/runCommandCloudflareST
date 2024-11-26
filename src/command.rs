@@ -25,10 +25,11 @@ pub async fn run_cloudflare_st(
     tokio::select! {
         _ = signal_task => {
             // 收到 Ctrl+C 信号，杀死子进程
-            println!("收到Ctrl+C信号，杀死子进程...");
+            println!("\n\n收到Ctrl+C信号，杀死子进程...");
             if let Err(e) = child.kill().await {
-                eprintln!("杀死子进程失败: {}", e);
+                eprintln!("\n\n杀死子进程失败: {}", e);
             }
+            std::process::exit(0);
         }
         _ = read_child_task => {
             // 子进程输出读取完成

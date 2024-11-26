@@ -9,7 +9,7 @@ use std::{
 use rand::{ seq::SliceRandom, Rng };
 
 /// 从文件读取所有 CIDR，并返回去重后的字符串向量
-fn read_cidrs_from_file(file_path: &str) -> io::Result<Vec<String>> {
+pub fn read_cidrs_from_file(file_path: &str) -> io::Result<Vec<String>> {
     let mut cidr_set = HashSet::new();
     let file = File::open(file_path)?;
     for line in io::BufReader::new(file).lines() {

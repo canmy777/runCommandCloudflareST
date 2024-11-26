@@ -40,16 +40,42 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     if select_file != IPS_V4_PATH {
         let source_path = format!("{}/{}", CIDR_PATH, select_file);
         std::fs::copy(source_path, IPS_V4_PATH)?; // 执行文件复制（会覆盖目标文件）
-        
+
         country_code = utils::get_country_code(COUNTRY_CODES, &select_file.to_uppercase());
     }
 
     // ————————————————————————————————————————————————————————————————————————————————————
-    
+
     println!();
-    
-    // 由IPv4 CIDR生成IP地址
-    ips::generate_and_write_ips(IPS_V4_PATH, IPS_V4_TEMP);
+
+    let label = "是否测试CIDR内所有IP地址？(Y/n，默认为n)：";
+    let yes_or_no: Vec<String> = vec!["Y", "N", "y", "n", ""]
+        .iter()
+        .map(|&s| s.to_string())
+        .collect();
+    let test_allip = get_user_input(label, String::new(), yes_or_no.clone());
+
+    /*
+      按照是否测试CIDR内所有IP地址作为判断依据
+        - 是，则由原CloudflareST程序生成IP地址测试，
+        - 否，则由本Rust代码生成指定数量的IP地址测试。
+    */
+    if test_allip.to_uppercase() == "Y" {
+        std::fs::copy(IPS_V4_PATH, IPS_V4_TEMP)?; // 直接复制过去
+        let cidrs = ips::read_cidrs_from_file(IPS_V4_TEMP).unwrap(); // 只用于计算大概要测试多少个IP地址
+        let cidrs_len = cidrs.len();
+        println!(
+            "共 {} 个CIDR，全IP地址测试模式，约 {} * 256 = {} 个IP要测试！\n(具体数据由CloudflareST程序计算)",
+            cidrs_len,
+            cidrs_len,
+            cidrs_len * 256
+        );
+    } else {
+        // 由IPv4 CIDR生成IP地址
+        ips::generate_and_write_ips(IPS_V4_PATH, IPS_V4_TEMP);
+    }
+
+    // ————————————————————————————————————————————————————————————————————————————————————
 
     // 判断后面要执行的CLI命令，所使用的文件是否为空/不存在
     if !ips::check_file_exists_and_not_empty(IPS_V4_TEMP) {
@@ -58,6 +84,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     }
 
     // ————————————————————————————————————————————————————————————————————————————————————
+
     let ports_shape =
         r"
  +-----------------------------------------------------+
@@ -93,20 +120,34 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         );
 
         // 运行 CloudflareST
-        let _ = command::run_cloudflare_st(
-            EXE_CLI,
-            vec!["-f", IPS_V4_TEMP, "-o", CSV_FILE, "-tp", &port, "-dn", &dn]
-        ).await;
+        if test_allip.to_uppercase() == "Y" {
+            let _ = command::run_cloudflare_st(
+                EXE_CLI,
+                vec!["-f", IPS_V4_TEMP, "-o", CSV_FILE, "-tp", &port, "-dn", &dn, "-allip"]
+            ).await;
+        } else {
+            let _ = command::run_cloudflare_st(
+                EXE_CLI,
+                vec!["-f", IPS_V4_TEMP, "-o", CSV_FILE, "-tp", &port, "-dn", &dn]
+            ).await;
+        }
     } else {
         println!(
             "\n+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++\n"
         );
 
         // 运行 CloudflareST
-        let _ = command::run_cloudflare_st(
-            EXE_CLI,
-            vec!["-f", IPS_V4_TEMP, "-o", CSV_FILE, "-tp", &port, "-dd"]
-        ).await;
+        if test_allip.to_uppercase() == "Y" {
+            let _ = command::run_cloudflare_st(
+                EXE_CLI,
+                vec!["-f", IPS_V4_TEMP, "-o", CSV_FILE, "-tp", &port, "-dd", "-allip"]
+            ).await;
+        } else {
+            let _ = command::run_cloudflare_st(
+                EXE_CLI,
+                vec!["-f", IPS_V4_TEMP, "-o", CSV_FILE, "-tp", &port, "-dd"]
+            ).await;
+        }
     }
 
     // ------------------------------------------------------------------------------------
